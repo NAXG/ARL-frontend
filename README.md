@@ -36,6 +36,12 @@
 
 ---
 
+## 🚧 项目状态
+
+**⚠️ 注意：** 本项目仍在积极开发中，部分功能可能尚未完成或存在 Bug。欢迎通过 Issue 和 Pull Request 参与贡献！
+AI 审核 PR[旺柴]
+---
+
 ARL (Asset Reconnaissance Lighthouse) 资产侦察灯塔系统的现代化前端界面，基于 Vue 3 + Ant Design Vue 4 重构，提供直观、美观的用户体验。
 
 ## 📸 项目界面
