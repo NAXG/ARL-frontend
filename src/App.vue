@@ -1,0 +1,312 @@
+<template>
+  <router-view v-if="!showLayout" />
+  <a-layout v-else class="app-layout">
+    <a-layout-sider v-model:collapsed="collapsed" :trigger="null" width="170" collapsed-width="50">
+      <p class="logo-word" :class="{ collapsed: collapsed }">
+        <img v-if="!collapsed" src="/logo.svg" alt="Logo" class="logo-expanded" />
+        <img v-else src="/collapsed_logo.svg" alt="Collapsed Logo" class="logo-collapsed" />
+      </p>
+      <a-menu
+        theme="dark"
+        mode="inline"
+        :selectedKeys="[selectedMenuKey]"
+        :inline-collapsed="collapsed"
+      >
+        <a-menu-item
+          v-for="item in menuItems"
+          :key="item.key"
+          :disabled="!item.path"
+          @click="handleMenuClick(item)"
+        >
+          <component :is="item.icon" class="anticon" />
+          <span class="menu-title">{{ item.label }}</span>
+        </a-menu-item>
+      </a-menu>
+    </a-layout-sider>
+    <a-layout>
+      <a-layout-header class="header">
+        <div class="header-left">
+          <div class="trigger" @click="collapsed = !collapsed">
+            <component :is="collapsed ? MenuUnfoldOutlined : MenuFoldOutlined" />
+          </div>
+          <h2 class="header-title">{{ currentPageTitle }}</h2>
+        </div>
+        <div class="header-right" v-if="isAuthenticated">
+          <a-avatar class="avatar" size="small">
+            <UserOutlined />
+          </a-avatar>
+          <span class="username">{{ username || '未命名用户' }}</span>
+          <a-divider type="vertical" />
+          <a-button type="link" size="small" @click="handleLogout">退出登录</a-button>
+        </div>
+      </a-layout-header>
+      <a-layout-content class="content">
+        <router-view v-slot="{ Component, route }">
+          <transition name="slide-left">
+            <component :is="Component" :key="route.path" />
+          </transition>
+        </router-view>
+      </a-layout-content>
+    </a-layout>
+  </a-layout>
+</template>
+
+<script setup>
+import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { message } from 'ant-design-vue';
+import { MenuUnfoldOutlined, MenuFoldOutlined, AppstoreOutlined, SearchOutlined, RadarChartOutlined, ClusterOutlined, SettingOutlined, GlobalOutlined, HddOutlined, ScheduleOutlined, GithubOutlined, FundOutlined, UserOutlined, TagsOutlined } from '@ant-design/icons-vue';
+import { logout } from '@/api/auth';
+import { subscribeAuthChange, clearAuth } from '@/utils/auth';
+
+const collapsed = ref(false);
+const route = useRoute();
+const router = useRouter();
+
+const isAuthenticated = ref(false);
+const username = ref('');
+const showLayout = computed(() => route.meta?.layout !== 'blank');
+
+const menuItems = [
+  { key: 'task', label: '任务管理', icon: AppstoreOutlined, path: '/taskList' },
+  { key: 'asset-search', label: '资产搜索', icon: SearchOutlined, path: '/search' },
+  { key: 'asset-monitor', label: '资产监控', icon: RadarChartOutlined, path: '/assetsMonitor' },
+  { key: 'asset-group', label: '资产分组', icon: ClusterOutlined, path: '/groupAssetsManagement' },
+  { key: 'policy-config', label: '策略配置', icon: SettingOutlined, path: '/policy' },
+  { key: 'fingerprint', label: '指纹管理', icon: TagsOutlined, path: '/tagManagement' },
+  { key: 'poc', label: 'PoC 信息', icon: GlobalOutlined, path: '/pocList' },
+  { key: 'scheduler', label: '计划任务', icon: ScheduleOutlined, path: '/planningTasks' },
+  { key: 'github-manage', label: 'GitHub 管理', icon: GithubOutlined, path: '/GitHubTasks/GitHubTasksList' },
+  { key: 'github-monitor', label: 'GitHub 监控', icon: HddOutlined, path: '/GitHubMonitor/GitHubMonitorList' },
+  { key: 'domain-prefix', label: '域名前缀统计', icon: FundOutlined, path: '/domain/prefix-stat' }
+];
+
+const selectedMenuKey = computed(() => {
+  if (!showLayout.value) return '';
+
+  // Find the most specific match for the current route
+  const active = menuItems
+    .filter(item => item.path && route.path.startsWith(item.path))
+    .sort((a, b) => b.path.length - a.path.length)[0];
+
+  if (active) {
+    return active.key;
+  }
+
+  // Default to task for root or if no match is found
+  if (route.path === '/' || route.path === '/taskList') {
+    return 'task';
+  }
+
+  return ''; // Return no selection if no match
+});
+
+const currentPageTitle = computed(() => {
+  const active = menuItems.find((item) => item.key === selectedMenuKey.value);
+  return active?.label || '任务管理';
+});
+
+const handleMenuClick = (item) => {
+  if (!item.path) return;
+  if (route.path !== item.path) {
+    router.push(item.path);
+  }
+};
+
+const handleLogout = async () => {
+  try {
+    await logout();
+  } catch (error) {
+    // ignore
+  } finally {
+    clearAuth();
+    message.success('已退出登录');
+    router.replace({ name: 'login' });
+  }
+};
+
+
+
+let unsubscribe;
+
+onMounted(() => {
+  unsubscribe = subscribeAuthChange(({ token, username: name }) => {
+    isAuthenticated.value = !!token;
+    username.value = name || '';
+  });
+});
+
+onUnmounted(() => {
+  if (typeof unsubscribe === 'function') {
+    unsubscribe();
+  }
+});
+
+</script>
+
+<style scoped>
+/* 1. Sider Container */
+:deep(.ant-layout-sider) {
+  position: relative;
+  min-width: 0;
+  background: #001529;
+  transition: all 0.2s;
+}
+
+/* 2. Logo (Emulated with SVG) */
+.logo-word {
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center; /* Center expanded logo */
+  padding: 0 24px;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.logo-word.collapsed {
+  padding-left: 12px;
+  justify-content: flex-start; /* Left-align collapsed logo */
+}
+
+/* My custom classes for the img tags */
+.logo-expanded {
+  height: 30px;
+}
+
+.logo-collapsed {
+  height: 30px;
+}
+
+/* 3. Menu Item (from Reference) */
+:deep(.ant-menu-dark .ant-menu-item),
+:deep(.ant-menu-dark .ant-menu-submenu-title) {
+  color: #5e7d8c;
+  border-left: 3px solid transparent;
+  border-top-right-radius: 20px;
+  border-bottom-right-radius: 20px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  height: 40px;
+  line-height: 40px;
+  padding: 0 16px 0 24px !important;
+  margin: 4px 0 !important;
+  width: 100%;
+}
+
+:deep(.ant-menu.ant-menu-dark .ant-menu-item-selected),
+:deep(.ant-menu-dark.ant-menu-inline .ant-menu-submenu-selected .ant-menu-submenu-title) {
+  color: #fff;
+  border-left-color: #00c5dc;
+  background: hsla(0, 0%, 100%, 0.2);
+}
+
+:deep(.ant-menu-item .anticon) {
+  font-size: 14px;
+}
+
+/* 4. Collapsed State (from Reference) */
+
+
+:deep(.ant-menu-inline-collapsed > .ant-menu-item) {
+  padding: 0 !important; /* Remove padding, flexbox will handle alignment */
+  display: flex;
+  align-items: center; /* Vertical centering */
+  justify-content: center; /* Horizontal centering */
+  margin: 4px 0 8px !important;
+  line-height: initial; /* Reset line-height to prevent conflict with flexbox */
+}
+
+:deep(.ant-menu-inline-collapsed .ant-menu-item .anticon) {
+  margin: 0;
+  font-size: 16px;
+}
+
+/* The definitive fix for hiding text */
+:deep(.ant-menu-inline-collapsed > .ant-menu-item .anticon + .menu-title) {
+  display: inline-block;
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+
+/* Keep other styles for header and content */
+.app-layout {
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.header {
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.trigger {
+  font-size: 18px;
+  cursor: pointer;
+  color: #1d2b3e;
+}
+
+.header-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1d2b3e;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #1d2b3e;
+}
+
+.avatar :deep(.ant-avatar-string) {
+  display: none;
+}
+
+.username {
+  font-weight: 500;
+}
+
+.content {
+  background: #f4f6fa;
+  min-height: calc(100vh - 64px);
+  padding: 24px 32px;
+  position: relative;
+}
+
+.slide-left-enter-active,
+.slide-left-leave-active {
+  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+  position: absolute;
+  width: 100%;
+}
+
+.slide-left-enter-from {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+
+.slide-left-leave-to {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+.content {
+  overflow-x: hidden;
+}
+</style>

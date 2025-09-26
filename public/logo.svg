@@ -1,0 +1,36 @@
+<svg viewBox="0 0 128 30" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <defs>
+        <linearGradient x1="50%" y1="0%" x2="50%" y2="96.8045297%" id="whitelogo_linearGradient-1">
+            <stop stop-color="#00C0FF" offset="0%"></stop>
+            <stop stop-color="#00DEBB" offset="100%"></stop>
+        </linearGradient>
+        <path d="M17.5,1.44337567 L25.4903811,6.05662433 C27.0373864,6.9497883 27.9903811,8.6004234 27.9903811,10.3867513 L27.9903811,19.6132487 C27.9903811,21.3995766 27.0373864,23.0502117 25.4903811,23.9433757 L17.5,28.5566243 C15.9529946,29.4497883 14.0470054,29.4497883 12.5,28.5566243 L4.50961894,23.9433757 C2.96261356,23.0502117 2.00961894,21.3995766 2.00961894,19.6132487 L2.00961894,10.3867513 C2.00961894,8.6004234 2.96261356,6.9497883 4.50961894,6.05662433 L12.5,1.44337567 C14.0470054,0.550211698 15.9529946,0.550211698 17.5,1.44337567 Z" id="whitelogo_path-2"></path>
+        <linearGradient x1="0%" y1="50%" x2="90.8112898%" y2="50%" id="whitelogo_linearGradient-4">
+            <stop stop-color="#FFFFFF" offset="0%"></stop>
+            <stop stop-color="#FFFFFF" stop-opacity="0.0549606643" offset="100%"></stop>
+        </linearGradient>
+    </defs>
+    <g id="whitelogo_页面-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="whitelogo_自定义预设" transform="translate(-1165.000000, -140.000000)">
+            <g id="whitelogo_logo左侧导航" transform="translate(1163.000000, 140.000000)">
+                <text id="whitelogo_资产灯塔系统" font-family="PingFangSC-Medium, PingFang SC" font-size="16" font-weight="400" fill="#FFFFFF">
+                    <tspan x="34" y="21">资产灯塔系统</tspan>
+                </text>
+                <g id="whitelogo_多边形备份-18-+-多边形备份-23蒙版">
+                    <mask id="whitelogo_mask-3" fill="white">
+                        <use xlink:href="#whitelogo_path-2"></use>
+                    </mask>
+                    <use id="whitelogo_蒙版" fill="url(#whitelogo_linearGradient-1)" xlink:href="#whitelogo_path-2"></use>
+                    <g id="whitelogo_编组" mask="url(#whitelogo_mask-3)" fill="#FFFFFF">
+                        <g transform="translate(10.909091, 8.181818)">
+                            <rect id="whitelogo_矩形" transform="translate(4.090909, 1.022727) scale(-1, 1) translate(-4.090909, -1.022727) " x="2.04545455" y="0" width="4.09090909" height="2.04545455" rx="1.02272727"></rect>
+                            <path d="M5.45454545,2.72727273 L8.18181818,21.8181818 L5.113,21.8172727 L5.11363636,19.4318182 L3.06818182,19.4318182 L3.068,21.8172727 L6.66044997e-12,21.8181818 L2.72727273,2.72727273 L5.45454545,2.72727273 Z" id="whitelogo_形状结合" transform="translate(4.090909, 12.272727) scale(-1, 1) translate(-4.090909, -12.272727) "></path>
+                            <rect id="whitelogo_矩形" transform="translate(4.090909, 3.750000) scale(-1, 1) translate(-4.090909, -3.750000) " x="0" y="2.72727273" width="8.18181818" height="2.04545455" rx="1.02272727"></rect>
+                        </g>
+                    </g>
+                    <polygon id="whitelogo_矩形" fill="url(#whitelogo_linearGradient-4)" mask="url(#whitelogo_mask-3)" points="23.25 8.25 23.25 10.5 18 9.37178482"></polygon>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>
