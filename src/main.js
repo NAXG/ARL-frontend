@@ -4,6 +4,9 @@ import 'ant-design-vue/dist/reset.css';
 
 import App from './App.vue';
 import router from './router';
+import { installResizeObserverErrorHandler } from '@/utils/resizeObserverError';
+
+installResizeObserverErrorHandler();
 
 const app = createApp(App);
 app.use(router);

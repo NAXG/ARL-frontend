@@ -5,7 +5,12 @@
   "scripts": {
     "dev": "webpack serve --config webpack.config.js --mode development",
     "build": "webpack --config webpack.config.js --mode production",
-    "lint": "echo 'No lint command configured'"
+    "lint": "eslint \"src/**/*.{js,vue}\" --max-warnings=0",
+    "lint:fix": "eslint \"src/**/*.{js,vue}\" --fix",
+    "format": "prettier --write \"{src,public}/**/*.{js,vue,css,less,json,md}\"",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "type-check": "vue-tsc --noEmit"
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",
@@ -18,16 +23,26 @@
   "devDependencies": {
     "@babel/core": "^7.24.0",
     "@babel/preset-env": "^7.24.0",
+    "@vitejs/plugin-vue": "^6.0.1",
     "@vue/compiler-sfc": "^3.4.0",
+    "@vue/test-utils": "^2.4.6",
     "babel-loader": "^9.1.3",
     "css-loader": "^6.9.1",
+    "dotenv": "^17.2.3",
+    "eslint": "^9.36.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-vue": "^10.5.0",
     "file-loader": "^6.2.0",
     "html-webpack-plugin": "^5.5.3",
+    "jsdom": "^27.0.0",
     "less": "^4.2.0",
     "less-loader": "^11.1.0",
+    "prettier": "^3.6.2",
     "style-loader": "^3.3.4",
+    "vitest": "^3.2.4",
     "vue-loader": "^17.4.2",
     "vue-style-loader": "^4.1.3",
+    "vue-tsc": "^3.1.0",
     "webpack": "^5.91.0",
     "webpack-cli": "^5.1.4",
     "webpack-dev-server": "^5.2.2"

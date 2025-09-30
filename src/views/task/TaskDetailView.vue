@@ -19,7 +19,7 @@
         </a-space>
       </div>
 
-      <a-tabs v-model:activeKey="activeTab">
+      <a-tabs v-model:active-key="activeTab">
         <a-tab-pane v-for="tab in tabs" :key="tab.key" :tab="tab.label" />
       </a-tabs>
 
@@ -211,4 +211,3 @@ const tableData = ref([
   font-size: 12px;
 }
 </style>
-

@@ -29,7 +29,7 @@
       </div>
       <a-table
         :columns="columns"
-        :data-source="dataSource"
+        :data-source="displayedData"
         :pagination="pagination"
         :row-selection="rowSelection"
         row-key="id"
@@ -73,6 +73,7 @@
       destroy-on-close
       ok-text="确定"
       cancel-text="取消"
+      :confirm-loading="addSubmitting"
       @ok="handleAddSubmit"
       @cancel="handleAddCancel"
     >
@@ -103,6 +104,7 @@
       destroy-on-close
       ok-text="上传"
       cancel-text="取消"
+      :confirm-loading="uploadSubmitting"
       @ok="handleUploadSubmit"
       @cancel="handleUploadCancel"
     >
@@ -121,7 +123,8 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
+import { message } from 'ant-design-vue';
 import PageFooter from '@/components/PageFooter.vue';
 
 const filters = reactive({
@@ -136,12 +139,12 @@ const pagination = reactive({
   showTotal: (total) => `共 ${total} 条`
 });
 
-const dataSource = ref([
+const rawData = ref([
   {
     id: 1,
     index: 1,
     name: '360-Webguard',
-    rule: 'header="wzws-ray"@取消此条规则"',
+    rule: 'header="wzws-ray"',
     source: '内置规则库',
     type: 'Header'
   },
@@ -149,13 +152,28 @@ const dataSource = ref([
     id: 2,
     index: 2,
     name: 'layer.js',
-    rule: 'body="layer.js"@取消此条规则"',
+    rule: 'body="layer.js"',
     source: '社区贡献',
     type: 'Body'
   }
 ]);
 
-pagination.total = dataSource.value.length;
+const filteredData = computed(() =>
+  rawData.value
+    .filter((item) => {
+      const nameMatch = !filters.name || item.name.toLowerCase().includes(filters.name.toLowerCase());
+      const ruleMatch = !filters.rule || item.rule.toLowerCase().includes(filters.rule.toLowerCase());
+      return nameMatch && ruleMatch;
+    })
+    .sort((a, b) => a.name.localeCompare(b.name))
+);
+
+const displayedData = computed(() =>
+  filteredData.value.map((item, index) => ({
+    ...item,
+    index: (pagination.current - 1) * pagination.pageSize + index + 1
+  }))
+);
 
 const selectedRowKeys = ref([]);
 const selectAll = ref(false);
@@ -171,17 +189,18 @@ const rowSelection = computed(() => ({
   selectedRowKeys: selectedRowKeys.value,
   onChange: (keys) => {
     selectedRowKeys.value = keys;
-    selectAll.value = keys.length === dataSource.value.length;
+    selectAll.value = keys.length > 0 && keys.length === filteredData.value.length;
   }
 }));
 
 const handleQuery = () => {
-  // TODO: 接入查询接口
+  pagination.current = 1;
 };
 
 const handleReset = () => {
   filters.name = '';
   filters.rule = '';
+  handleQuery();
 };
 
 const handleImport = () => {
@@ -189,11 +208,32 @@ const handleImport = () => {
 };
 
 const handleExport = () => {
-  // TODO: 执行导出指纹操作
+  if (!filteredData.value.length) {
+    message.warning('暂无可导出的指纹数据');
+    return;
+  }
+  if (typeof window === 'undefined') return;
+  const blob = new Blob([JSON.stringify(filteredData.value, null, 2)], {
+    type: 'application/json;charset=utf-8'
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'fingerprints.json';
+  link.click();
+  URL.revokeObjectURL(url);
+  message.success('指纹数据导出成功');
 };
 
 const handleBatchDelete = () => {
-  // TODO: 批量删除指纹
+  if (!selectedRowKeys.value.length) {
+    message.warning('请选择需要删除的指纹');
+    return;
+  }
+  rawData.value = rawData.value.filter((item) => !selectedRowKeys.value.includes(item.id));
+  selectedRowKeys.value = [];
+  selectAll.value = false;
+  message.success('已删除选中的指纹');
 };
 
 const handleAdd = () => {
@@ -202,7 +242,7 @@ const handleAdd = () => {
 
 const handleSelectAll = (event) => {
   if (event.target.checked) {
-    selectedRowKeys.value = dataSource.value.map((item) => item.id);
+    selectedRowKeys.value = filteredData.value.map((item) => item.id);
     selectAll.value = true;
   } else {
     selectedRowKeys.value = [];
@@ -224,6 +264,8 @@ const addModal = reactive({
   }
 });
 
+const addSubmitting = ref(false);
+
 const addRules = {
   name: [{ required: true, message: '请输入名称', trigger: 'blur' }],
   rule: [{ required: true, message: '请输入指纹规则', trigger: 'blur' }]
@@ -237,10 +279,25 @@ const resetAddForm = () => {
 const handleAddSubmit = () => {
   addFormRef.value
     ?.validate()
-    .then(() => {
-      // TODO: 提交新增指纹
-      addModal.visible = false;
-      resetAddForm();
+    .then(async () => {
+      addSubmitting.value = true;
+      try {
+        const payload = {
+          id: Date.now(),
+          name: addModal.form.name.trim(),
+          rule: addModal.form.rule.trim(),
+          source: '自定义',
+          type: addModal.form.rule.includes('header') ? 'Header' : 'Body'
+        };
+
+        rawData.value = [payload, ...rawData.value];
+        message.success('指纹已添加');
+        addModal.visible = false;
+        resetAddForm();
+        handleQuery();
+      } finally {
+        addSubmitting.value = false;
+      }
     })
     .catch(() => {});
 };
@@ -255,20 +312,75 @@ const uploadModal = reactive({
   fileList: []
 });
 
+const uploadSubmitting = ref(false);
+
 const handleUploadChange = ({ fileList }) => {
   uploadModal.fileList = fileList.slice(-1);
 };
 
-const handleUploadSubmit = () => {
-  // TODO: 执行上传
-  uploadModal.visible = false;
-  uploadModal.fileList = [];
+const handleUploadSubmit = async () => {
+  if (!uploadModal.fileList.length) {
+    message.warning('请选择需要上传的文件');
+    return;
+  }
+  const file = uploadModal.fileList[0]?.originFileObj;
+  if (!file) {
+    message.error('文件读取失败，请重试');
+    return;
+  }
+
+  uploadSubmitting.value = true;
+  try {
+    const content = await file.text();
+    const parsed = JSON.parse(content);
+    if (!Array.isArray(parsed)) {
+      throw new Error('文件格式不正确');
+    }
+
+    const normalised = parsed
+      .map((item, index) => ({
+        id: item.id ?? Date.now() + index,
+        name: item.name ?? `导入指纹-${index + 1}`,
+        rule: item.rule ?? '',
+        source: item.source ?? '导入',
+        type: item.type ?? 'Body'
+      }))
+      .filter((item) => item.rule);
+
+    if (!normalised.length) {
+      message.warning('文件中未找到有效的指纹规则');
+    } else {
+      rawData.value = [...normalised, ...rawData.value];
+      message.success(`成功导入 ${normalised.length} 条指纹`);
+    }
+    uploadModal.visible = false;
+    uploadModal.fileList = [];
+    handleQuery();
+  } catch (error) {
+    message.error(error.message || '指纹文件解析失败');
+  } finally {
+    uploadSubmitting.value = false;
+  }
 };
 
 const handleUploadCancel = () => {
   uploadModal.visible = false;
   uploadModal.fileList = [];
 };
+
+watch(filteredData, (value) => {
+  pagination.total = value.length;
+  if ((pagination.current - 1) * pagination.pageSize >= value.length && pagination.current > 1) {
+    pagination.current = Math.max(1, Math.ceil(value.length / pagination.pageSize));
+  }
+}, { immediate: true });
+
+watch(rawData, () => {
+  const validIds = new Set(rawData.value.map((item) => item.id));
+  selectedRowKeys.value = selectedRowKeys.value.filter((id) => validIds.has(id));
+  selectAll.value =
+    selectedRowKeys.value.length > 0 && selectedRowKeys.value.length === filteredData.value.length;
+}, { deep: true });
 </script>
 
 <style scoped>
@@ -338,4 +450,3 @@ const handleUploadCancel = () => {
   font-size: 12px;
 }
 </style>
-

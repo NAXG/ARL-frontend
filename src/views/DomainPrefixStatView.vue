@@ -103,7 +103,7 @@ const loadData = async () => {
     pagination.total = data?.total ?? 0;
     pagination.current = data?.page ?? pagination.current;
     pagination.pageSize = data?.size ?? pagination.pageSize;
-  } catch (err) {
+  } catch {
     message.error('加载数据失败');
   } finally {
     loading.value = false;

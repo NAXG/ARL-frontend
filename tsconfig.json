@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "node",
+    "allowJs": true,
+    "checkJs": false,
+    "jsx": "preserve",
+    "strict": false,
+    "noEmit": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "lib": ["esnext", "dom"],
+    "types": ["vitest/globals"]
+  },
+  "include": ["src/**/*.js", "src/**/*.vue", "src/**/*.d.ts", "env.d.ts"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -20,8 +20,10 @@
             <a-button type="primary" @click="handleQuery">查询</a-button>
             <a-button @click="handleReset">重置</a-button>
             <a-button type="primary" ghost @click="handleAdd">添加任务</a-button>
-            <a-button danger ghost @click="handleBatchDelete">批量删除</a-button>
-            <a-button disabled>批量停止</a-button>
+            <a-button danger ghost :disabled="!hasSelection" :loading="deleting" @click="handleBatchDelete">
+              批量删除
+            </a-button>
+            <a-button :disabled="!hasSelection">批量停止</a-button>
           </a-space>
         </a-form-item>
       </a-form>
@@ -32,6 +34,8 @@
         :columns="columns"
         :data-source="dataSource"
         :pagination="pagination"
+        :loading="tableLoading"
+        :row-selection="rowSelection"
         row-key="id"
         @change="handleTableChange"
       >
@@ -60,6 +64,7 @@
       destroy-on-close
       ok-text="确定"
       cancel-text="取消"
+      :confirm-loading="addSubmitting"
       @ok="handleAddSubmit"
       @cancel="handleAddCancel"
     >
@@ -85,8 +90,11 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
+import { message } from 'ant-design-vue';
 import PageFooter from '@/components/PageFooter.vue';
+import { useAsyncTable } from '@/utils/useAsyncTable';
+import { createGithubTask, deleteGithubTasks, fetchGithubTasks } from '@/api/github';
 
 const filters = reactive({
   name: '',
@@ -105,14 +113,51 @@ const columns = [
   { title: '操作', dataIndex: 'actions', width: 160 }
 ];
 
-const dataSource = ref([]);
+const githubTable = useAsyncTable(async (params) => {
+  const { items, total } = await fetchGithubTasks(params);
+  const rows = items.map((item, index) => ({
+    id: item.id ?? index + 1,
+    name: item.name ?? '--',
+    keyword: item.keyword ?? '--',
+    resultCount: item.resultCount ?? item.count ?? 0,
+    status: item.status ?? 'running',
+    startTime: item.startTime ?? item.createdAt ?? '--',
+    endTime: item.endTime ?? item.finishedAt ?? '--',
+    taskId: item.taskId ?? item.id ?? `GITHUB-${index + 1}`
+  }));
 
-const pagination = reactive({
-  current: 1,
-  pageSize: 10,
-  total: 0,
-  showTotal: (total) => `共 ${total} 条`
+  return {
+    items: rows,
+    total
+  };
+}, {
+  pagination: {
+    pageSize: 10,
+    showTotal: (total) => `共 ${total} 条`
+  }
 });
+
+const {
+  data: dataSource,
+  loading: tableLoading,
+  pagination,
+  run: loadGithubTable,
+  handleTableChange: baseHandleTableChange,
+  resetPagination
+} = githubTable;
+
+const selectedRowKeys = ref([]);
+const deleting = ref(false);
+const addSubmitting = ref(false);
+
+const hasSelection = computed(() => selectedRowKeys.value.length > 0);
+
+const rowSelection = computed(() => ({
+  selectedRowKeys: selectedRowKeys.value,
+  onChange: (keys) => {
+    selectedRowKeys.value = keys;
+  }
+}));
 
 const statusColor = (status) => {
   switch (status) {
@@ -127,27 +172,69 @@ const statusColor = (status) => {
   }
 };
 
+const buildFilters = () => {
+  const params = {};
+  if (filters.name?.trim()) {
+    params.name = filters.name.trim();
+  }
+  if (filters.keyword?.trim()) {
+    params.keyword = filters.keyword.trim();
+  }
+  if (filters.status) {
+    params.status = filters.status;
+  }
+  return params;
+};
+
+const refreshGithubTable = () =>
+  loadGithubTable(buildFilters()).catch(() => {
+    message.error('GitHub 任务加载失败，请稍后重试');
+  });
+
+const handleTableChange = (paginationInfo) =>
+  baseHandleTableChange(paginationInfo)
+    .then(() => {
+      selectedRowKeys.value = [];
+    })
+    .catch(() => {
+      message.error('GitHub 任务加载失败，请稍后重试');
+    });
+
 const handleQuery = () => {
-  // TODO: 查询任务
+  resetPagination();
+  refreshGithubTable();
 };
 
 const handleReset = () => {
   filters.name = '';
   filters.keyword = '';
   filters.status = undefined;
+  resetPagination();
+  refreshGithubTable();
 };
 
 const handleAdd = () => {
   addModal.visible = true;
 };
 
-const handleBatchDelete = () => {
-  // TODO: 批量删除任务
-};
+const handleBatchDelete = async () => {
+  if (!selectedRowKeys.value.length) {
+    message.warning('请选择需要删除的任务');
+    return;
+  }
 
-const handleTableChange = (paginationInfo) => {
-  pagination.current = paginationInfo.current;
-  pagination.pageSize = paginationInfo.pageSize;
+  deleting.value = true;
+  try {
+    await deleteGithubTasks(selectedRowKeys.value);
+    message.success('任务已删除');
+    selectedRowKeys.value = [];
+    await refreshGithubTable();
+  } catch (error) {
+    const errorMessage = error?.response?.data?.message || '删除任务失败，请稍后重试';
+    message.error(errorMessage);
+  } finally {
+    deleting.value = false;
+  }
 };
 
 const addFormRef = ref();
@@ -172,10 +259,25 @@ const resetAddForm = () => {
 const handleAddSubmit = () => {
   addFormRef.value
     ?.validate()
-    .then(() => {
-      // TODO: 提交 GitHub 任务
-      addModal.visible = false;
-      resetAddForm();
+    .then(async () => {
+      const payload = {
+        name: addModal.form.name.trim(),
+        keyword: addModal.form.keyword.trim()
+      };
+
+      addSubmitting.value = true;
+      try {
+        await createGithubTask(payload);
+        message.success('GitHub 任务已创建');
+        addModal.visible = false;
+        resetAddForm();
+        await refreshGithubTable();
+      } catch (error) {
+        const errorMessage = error?.response?.data?.message || '任务创建失败，请稍后重试';
+        message.error(errorMessage);
+      } finally {
+        addSubmitting.value = false;
+      }
     })
     .catch(() => {});
 };
@@ -184,6 +286,10 @@ const handleAddCancel = () => {
   addModal.visible = false;
   resetAddForm();
 };
+
+onMounted(() => {
+  refreshGithubTable();
+});
 </script>
 
 <style scoped>
@@ -227,4 +333,3 @@ const handleAddCancel = () => {
   width: 100%;
 }
 </style>
-

@@ -9,7 +9,7 @@
       <a-menu
         theme="dark"
         mode="inline"
-        :selectedKeys="[selectedMenuKey]"
+        :selected-keys="[selectedMenuKey]"
         :inline-collapsed="collapsed"
       >
         <a-menu-item
@@ -31,7 +31,7 @@
           </div>
           <h2 class="header-title">{{ currentPageTitle }}</h2>
         </div>
-        <div class="header-right" v-if="isAuthenticated">
+        <div v-if="isAuthenticated" class="header-right">
           <a-avatar class="avatar" size="small">
             <UserOutlined />
           </a-avatar>
@@ -41,9 +41,9 @@
         </div>
       </a-layout-header>
       <a-layout-content class="content">
-        <router-view v-slot="{ Component, route }">
+        <router-view v-slot="{ Component, route: viewRoute }">
           <transition name="slide-left">
-            <component :is="Component" :key="route.path" />
+            <component :is="Component" :key="viewRoute.path" />
           </transition>
         </router-view>
       </a-layout-content>
@@ -116,7 +116,7 @@ const handleMenuClick = (item) => {
 const handleLogout = async () => {
   try {
     await logout();
-  } catch (error) {
+  } catch {
     // ignore
   } finally {
     clearAuth();
@@ -128,17 +128,37 @@ const handleLogout = async () => {
 
 
 let unsubscribe;
+let authLogoutHandler;
 
 onMounted(() => {
   unsubscribe = subscribeAuthChange(({ token, username: name }) => {
     isAuthenticated.value = !!token;
     username.value = name || '';
   });
+
+  if (typeof window !== 'undefined') {
+    authLogoutHandler = () => {
+      if (route.name === 'login') {
+        return;
+      }
+
+      router.replace({
+        name: 'login',
+        query: { redirect: route.fullPath }
+      });
+    };
+
+    window.addEventListener('auth:logout', authLogoutHandler);
+  }
 });
 
 onUnmounted(() => {
   if (typeof unsubscribe === 'function') {
     unsubscribe();
+  }
+
+  if (typeof window !== 'undefined' && authLogoutHandler) {
+    window.removeEventListener('auth:logout', authLogoutHandler);
   }
 });
 

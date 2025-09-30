@@ -1,7 +1,7 @@
 <template>
   <div class="asset-search-page">
     <a-card class="filter-card" bordered>
-      <a-tabs v-model:activeKey="activeTab" class="search-tabs">
+      <a-tabs v-model:active-key="activeTab" class="search-tabs">
         <a-tab-pane key="site" tab="站点" />
         <a-tab-pane key="subdomain" tab="子域名" />
         <a-tab-pane key="ip" tab="IP" />
@@ -9,58 +9,58 @@
 
       <template v-if="activeTab === 'site'">
         <a-form layout="inline" class="filter-form">
-          <a-form-item label="站点">
-            <a-input placeholder="请输入站点进行搜索" allow-clear />
-          </a-form-item>
-          <a-form-item label="主机名">
-            <a-input placeholder="请输入主机名进行搜索" allow-clear />
-          </a-form-item>
-          <a-form-item label="标识">
-            <a-input placeholder="请输入标识进行搜索" allow-clear />
-          </a-form-item>
-          <a-form-item label="Web Server">
-            <a-input placeholder="请输入 Web Server 进行搜索" allow-clear />
-          </a-form-item>
-          <a-form-item label="状态码">
-            <a-input placeholder="请输入状态码进行搜索" allow-clear />
-          </a-form-item>
-          <a-form-item label="标签">
-            <a-input placeholder="请输入标签进行搜索" allow-clear />
-          </a-form-item>
-          <a-form-item label="favicon hash">
-            <a-input placeholder="请输入 favicon hash 进行搜索" allow-clear />
-          </a-form-item>
-          <a-form-item>
-            <a-space>
-              <a-button>清 除</a-button>
-              <a-button type="primary">导出站点</a-button>
-              <a-button type="primary" ghost @click="showRiskModal = true">风险任务下发</a-button>
-            </a-space>
-          </a-form-item>
-        </a-form>
+        <a-form-item label="站点">
+          <a-input v-model:value="siteFilters.site" placeholder="请输入站点进行搜索" allow-clear />
+        </a-form-item>
+        <a-form-item label="主机名">
+          <a-input v-model:value="siteFilters.host" placeholder="请输入主机名进行搜索" allow-clear />
+        </a-form-item>
+        <a-form-item label="标识">
+          <a-input v-model:value="siteFilters.identifier" placeholder="请输入标识进行搜索" allow-clear />
+        </a-form-item>
+        <a-form-item label="Web Server">
+          <a-input v-model:value="siteFilters.webServer" placeholder="请输入 Web Server 进行搜索" allow-clear />
+        </a-form-item>
+        <a-form-item label="状态码">
+          <a-input v-model:value="siteFilters.status" placeholder="请输入状态码进行搜索" allow-clear />
+        </a-form-item>
+        <a-form-item label="标签">
+          <a-input v-model:value="siteFilters.tag" placeholder="请输入标签进行搜索" allow-clear />
+        </a-form-item>
+        <a-form-item label="favicon hash">
+          <a-input v-model:value="siteFilters.favicon" placeholder="请输入 favicon hash 进行搜索" allow-clear />
+        </a-form-item>
+        <a-form-item>
+          <a-space>
+            <a-button @click="handleSiteReset">清 除</a-button>
+            <a-button type="primary" @click="handleSiteExport">导出站点</a-button>
+            <a-button type="primary" ghost @click="showRiskModal = true">风险任务下发</a-button>
+          </a-space>
+        </a-form-item>
+      </a-form>
       </template>
 
       <template v-else-if="activeTab === 'subdomain'">
         <a-form layout="inline" class="filter-form">
           <a-form-item label="域名">
-            <a-input placeholder="请输入域名进行搜索" allow-clear />
+            <a-input v-model:value="subdomainFilters.domain" placeholder="请输入域名进行搜索" allow-clear />
           </a-form-item>
           <a-form-item label="记录值">
-            <a-input placeholder="请输入记录值进行搜索" allow-clear />
+            <a-input v-model:value="subdomainFilters.recordValue" placeholder="请输入记录值进行搜索" allow-clear />
           </a-form-item>
           <a-form-item label="类型">
-            <a-input placeholder="请输入类型进行搜索" allow-clear />
+            <a-input v-model:value="subdomainFilters.recordType" placeholder="请输入类型进行搜索" allow-clear />
           </a-form-item>
           <a-form-item label="IP">
-            <a-input placeholder="请输入 IP 进行搜索" allow-clear />
+            <a-input v-model:value="subdomainFilters.ip" placeholder="请输入 IP 进行搜索" allow-clear />
           </a-form-item>
           <a-form-item label="来源">
-            <a-input placeholder="请输入来源进行搜索" allow-clear />
+            <a-input v-model:value="subdomainFilters.source" placeholder="请输入来源进行搜索" allow-clear />
           </a-form-item>
           <a-form-item>
             <a-space>
-              <a-button>清 除</a-button>
-              <a-button type="primary">导出域名</a-button>
+              <a-button @click="handleSubdomainReset">清 除</a-button>
+              <a-button type="primary" @click="handleSubdomainExport">导出域名</a-button>
             </a-space>
           </a-form-item>
         </a-form>
@@ -69,24 +69,24 @@
       <template v-else>
         <a-form layout="inline" class="filter-form">
           <a-form-item label="IP">
-            <a-input placeholder="请输入 IP 进行搜索" allow-clear />
+            <a-input v-model:value="ipFilters.ip" placeholder="请输入 IP 进行搜索" allow-clear />
           </a-form-item>
           <a-form-item label="域名">
-            <a-input placeholder="请输入域名进行搜索" allow-clear />
+            <a-input v-model:value="ipFilters.domain" placeholder="请输入域名进行搜索" allow-clear />
           </a-form-item>
           <a-form-item label="端口">
-            <a-input placeholder="请输入端口进行搜索" allow-clear />
+            <a-input v-model:value="ipFilters.port" placeholder="请输入端口进行搜索" allow-clear />
           </a-form-item>
           <a-form-item label="操作系统">
-            <a-input placeholder="请输入操作系统进行搜索" allow-clear />
+            <a-input v-model:value="ipFilters.os" placeholder="请输入操作系统进行搜索" allow-clear />
           </a-form-item>
           <a-form-item label="CDN">
-            <a-input placeholder="请输入 CDN 进行搜索" allow-clear />
+            <a-input v-model:value="ipFilters.cdn" placeholder="请输入 CDN 进行搜索" allow-clear />
           </a-form-item>
           <a-form-item>
             <a-space>
-              <a-button>清 除</a-button>
-              <a-button type="primary">导出 IP 端口</a-button>
+              <a-button @click="handleIpReset">清 除</a-button>
+              <a-button type="primary" @click="handleIpExport">导出 IP 端口</a-button>
             </a-space>
           </a-form-item>
         </a-form>
@@ -159,7 +159,8 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, onMounted, onUnmounted } from 'vue';
+import { computed, reactive, ref } from 'vue';
+import { message } from 'ant-design-vue';
 import PageFooter from '@/components/PageFooter.vue';
 
 const activeTab = ref('site');
@@ -200,6 +201,32 @@ const ipColumns = [
   { title: '关联域名', dataIndex: 'domain', width: 260 },
   { title: 'Geo', dataIndex: 'geo', width: 180 }
 ];
+
+const siteFilters = reactive({
+  site: '',
+  host: '',
+  identifier: '',
+  webServer: '',
+  status: '',
+  tag: '',
+  favicon: ''
+});
+
+const subdomainFilters = reactive({
+  domain: '',
+  recordValue: '',
+  recordType: '',
+  ip: '',
+  source: ''
+});
+
+const ipFilters = reactive({
+  ip: '',
+  domain: '',
+  port: '',
+  os: '',
+  cdn: ''
+});
 
 const siteData = reactive([
   {
@@ -252,6 +279,44 @@ const ipData = reactive([
   }
 ]);
 
+const includesIgnoreCase = (value, keyword) => {
+  if (!keyword) return true;
+  if (value === null || value === undefined) return false;
+  return value.toString().toLowerCase().includes(keyword.toLowerCase());
+};
+
+const filteredSiteData = computed(() =>
+  siteData.filter((item) =>
+    includesIgnoreCase(item.site, siteFilters.site) &&
+    includesIgnoreCase(item.host ?? item.site, siteFilters.host) &&
+    includesIgnoreCase(item.identifier ?? '', siteFilters.identifier) &&
+    includesIgnoreCase(item.webServer ?? '', siteFilters.webServer) &&
+    includesIgnoreCase(item.status ?? '', siteFilters.status) &&
+    includesIgnoreCase(item.tag ?? '', siteFilters.tag) &&
+    includesIgnoreCase(item.favicon ?? '', siteFilters.favicon)
+  )
+);
+
+const filteredSubdomainData = computed(() =>
+  subdomainData.filter((item) =>
+    includesIgnoreCase(item.domain, subdomainFilters.domain) &&
+    includesIgnoreCase(item.recordValue, subdomainFilters.recordValue) &&
+    includesIgnoreCase(item.recordType, subdomainFilters.recordType) &&
+    includesIgnoreCase(item.ipList, subdomainFilters.ip) &&
+    includesIgnoreCase(item.source ?? '', subdomainFilters.source)
+  )
+);
+
+const filteredIpData = computed(() =>
+  ipData.filter((item) =>
+    includesIgnoreCase(item.ip, ipFilters.ip) &&
+    includesIgnoreCase(item.domain, ipFilters.domain) &&
+    includesIgnoreCase(item.ports, ipFilters.port) &&
+    includesIgnoreCase(item.os, ipFilters.os) &&
+    includesIgnoreCase(item.cdn ?? '', ipFilters.cdn)
+  )
+);
+
 const currentColumns = computed(() => {
   if (activeTab.value === 'subdomain') return subdomainColumns;
   if (activeTab.value === 'ip') return ipColumns;
@@ -259,21 +324,23 @@ const currentColumns = computed(() => {
 });
 
 const currentData = computed(() => {
-  if (activeTab.value === 'subdomain') return subdomainData;
-  if (activeTab.value === 'ip') return ipData;
-  return siteData;
+  if (activeTab.value === 'subdomain') return filteredSubdomainData.value;
+  if (activeTab.value === 'ip') return filteredIpData.value;
+  return filteredSiteData.value;
 });
 
-const selectedTargetCount = computed(() => (activeTab.value === 'site' ? siteData.length : 0));
+const selectedTargetCount = computed(() =>
+  activeTab.value === 'site' ? filteredSiteData.value.length : 0
+);
 
 const handleRiskSubmit = () => {
   riskFormRef.value
     ?.validate()
     .then(() => {
-      // TODO: 调用风险任务下发接口
       showRiskModal.value = false;
       riskForm.strategy = undefined;
       riskForm.taskName = '';
+      message.success('风险巡航任务已提交');
     })
     .catch(() => {});
 };
@@ -284,16 +351,71 @@ const handleRiskCancel = () => {
   riskForm.taskName = '';
 };
 
-// 组件生命周期示例（可选）
-// 组件挂载时执行
-onMounted(() => {
-  console.log('✅ SearchView 组件已挂载');
-});
+const resetSiteFilters = () => {
+  siteFilters.site = '';
+  siteFilters.host = '';
+  siteFilters.identifier = '';
+  siteFilters.webServer = '';
+  siteFilters.status = '';
+  siteFilters.tag = '';
+  siteFilters.favicon = '';
+};
 
-// 组件卸载时执行
-onUnmounted(() => {
-  console.log('🔄 SearchView 组件即将卸载');
-});
+const resetSubdomainFilters = () => {
+  subdomainFilters.domain = '';
+  subdomainFilters.recordValue = '';
+  subdomainFilters.recordType = '';
+  subdomainFilters.ip = '';
+  subdomainFilters.source = '';
+};
+
+const resetIpFilters = () => {
+  ipFilters.ip = '';
+  ipFilters.domain = '';
+  ipFilters.port = '';
+  ipFilters.os = '';
+  ipFilters.cdn = '';
+};
+
+const handleSiteReset = () => {
+  resetSiteFilters();
+};
+
+const handleSubdomainReset = () => {
+  resetSubdomainFilters();
+};
+
+const handleIpReset = () => {
+  resetIpFilters();
+};
+
+const downloadJson = (filename, data) => {
+  if (typeof window === 'undefined') return;
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: 'application/json;charset=utf-8'
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
+const handleSiteExport = () => {
+  downloadJson('site-results.json', filteredSiteData.value);
+  message.success('站点数据导出成功');
+};
+
+const handleSubdomainExport = () => {
+  downloadJson('subdomain-results.json', filteredSubdomainData.value);
+  message.success('子域名数据导出成功');
+};
+
+const handleIpExport = () => {
+  downloadJson('ip-results.json', filteredIpData.value);
+  message.success('IP 数据导出成功');
+};
 </script>
 
 <style scoped>

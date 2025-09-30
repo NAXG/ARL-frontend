@@ -12,28 +12,52 @@
 
       <a-form layout="inline" class="filter-form">
         <a-form-item label="任务名">
-          <a-input placeholder="请输入任务名进行搜索" allow-clear />
+          <a-input v-model:value="filters.taskName" placeholder="请输入任务名进行搜索" allow-clear />
         </a-form-item>
         <a-form-item label="目标">
-          <a-input placeholder="请输入目标进行搜索" allow-clear />
+          <a-input v-model:value="filters.target" placeholder="请输入目标进行搜索" allow-clear />
         </a-form-item>
         <a-form-item label="Task_Id">
-          <a-input placeholder="请输入 Task_Id 进行搜索" allow-clear />
+          <a-input v-model:value="filters.taskId" placeholder="请输入 Task_Id 进行搜索" allow-clear />
         </a-form-item>
         <a-form-item label="任务类型">
-          <a-select placeholder="请选择任务类型进行搜索" allow-clear style="width: 200px" />
+          <a-select
+            v-model:value="filters.taskType"
+            placeholder="请选择任务类型进行搜索"
+            allow-clear
+            style="width: 200px"
+          >
+            <a-select-option value="asset">资产任务</a-select-option>
+            <a-select-option value="risk">风险任务</a-select-option>
+            <a-select-option value="github">GitHub 任务</a-select-option>
+          </a-select>
         </a-form-item>
         <a-form-item label="状态">
-          <a-input placeholder="请输入状态进行搜索" allow-clear />
+          <a-input v-model:value="filters.status" placeholder="请输入状态进行搜索" allow-clear />
         </a-form-item>
         <a-form-item label="站点数量">
-          <a-input placeholder="请输入站点数量进行搜索" allow-clear />
+          <a-input v-model:value="filters.siteCount" placeholder="请输入站点数量进行搜索" allow-clear />
         </a-form-item>
         <a-form-item label="域名数量">
-          <a-input placeholder="请输入域名数量进行搜索" allow-clear />
+          <a-input v-model:value="filters.domainCount" placeholder="请输入域名数量进行搜索" allow-clear />
         </a-form-item>
         <a-form-item label="WIH 数量">
-          <a-select placeholder="请选择 WIH 数量进行搜索" allow-clear style="width: 200px" />
+          <a-select
+            v-model:value="filters.wihCount"
+            placeholder="请选择 WIH 数量进行搜索"
+            allow-clear
+            style="width: 200px"
+          >
+            <a-select-option value="0">0</a-select-option>
+            <a-select-option value="1-10">1-10</a-select-option>
+            <a-select-option value=">10">大于 10</a-select-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item>
+          <a-space>
+            <a-button type="primary" @click="handleSearch">查询</a-button>
+            <a-button @click="handleReset">重置</a-button>
+          </a-space>
         </a-form-item>
       </a-form>
       <div class="filter-actions">
@@ -56,12 +80,14 @@
         :data-source="dataSource"
         :pagination="pagination"
         :scroll="{ x: 1400 }"
+        :loading="tableLoading"
         :row-selection="rowSelection"
         row-key="id"
+        @change="handleTableChange"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.dataIndex === 'status'">
-            <a-tag color="success">done</a-tag>
+            <a-tag :color="statusTagColor(record.status)">{{ statusText(record.status) }}</a-tag>
           </template>
           <template v-else-if="column.dataIndex === 'taskName'">
             <a-typography-link>{{ record.taskName }}</a-typography-link>
@@ -198,16 +224,35 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, onMounted, onUnmounted } from 'vue';
+import { computed, reactive, ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { message } from 'ant-design-vue';
 import { DownOutlined } from '@ant-design/icons-vue';
 import PageFooter from '@/components/PageFooter.vue';
+import { useAsyncTable } from '@/utils/useAsyncTable';
+import {
+  createTask,
+  dispatchFofaTask,
+  estimateFofaResult,
+  fetchTaskList
+} from '@/api/tasks';
 
 const router = useRouter();
 const showAddTask = ref(false);
 const showFofaTask = ref(false);
 const formRef = ref();
 const fofaFormRef = ref();
+
+const filters = reactive({
+  taskName: '',
+  target: '',
+  taskId: '',
+  taskType: undefined,
+  status: '',
+  siteCount: '',
+  domainCount: '',
+  wihCount: undefined
+});
 const formState = reactive({
   taskName: '',
   target: '',
@@ -260,6 +305,97 @@ const securityOptions = [
   { label: 'Host 探测', value: 'host' }
 ];
 
+const normaliseOptions = (options) => {
+  if (Array.isArray(options)) {
+    return options.join(', ');
+  }
+  if (typeof options === 'string') {
+    return options;
+  }
+  return '--';
+};
+
+const taskTable = useAsyncTable(async (params) => {
+  const { items, total } = await fetchTaskList(params);
+  const rows = items.map((item, index) => ({
+    id: item.id ?? index + 1,
+    taskName: item.taskName ?? item.name ?? '--',
+    target: item.target ?? item.domain ?? '--',
+    statistics: item.statistics ?? item.summary ?? '--',
+    options: normaliseOptions(item.options),
+    status: item.status ?? item.state ?? '--',
+    startTime: item.startTime ?? item.createdAt ?? '--',
+    endTime: item.endTime ?? item.finishedAt ?? '--',
+    taskId: item.taskId ?? item.id ?? `TASK-${index + 1}`
+  }));
+
+  return {
+    items: rows,
+    total
+  };
+});
+
+const {
+  data: dataSource,
+  loading: tableLoading,
+  pagination,
+  run: loadTaskTable,
+  handleTableChange: baseHandleTableChange,
+  resetPagination
+} = taskTable;
+
+const buildTaskFilters = () => {
+  const params = {};
+  if (filters.taskName?.trim()) params.taskName = filters.taskName.trim();
+  if (filters.target?.trim()) params.target = filters.target.trim();
+  if (filters.taskId?.trim()) params.taskId = filters.taskId.trim();
+  if (filters.taskType) params.taskType = filters.taskType;
+  if (filters.status?.trim()) params.status = filters.status.trim();
+  if (filters.siteCount?.trim()) params.siteCount = filters.siteCount.trim();
+  if (filters.domainCount?.trim()) params.domainCount = filters.domainCount.trim();
+  if (filters.wihCount) params.wihCount = filters.wihCount;
+  return params;
+};
+
+const handleTableChange = (paginationInfo) =>
+  baseHandleTableChange(paginationInfo).catch(() => {
+    message.error('任务列表加载失败，请稍后重试');
+  });
+
+const refreshTaskTable = () =>
+  loadTaskTable(buildTaskFilters()).catch(() => {
+    message.error('任务列表加载失败，请稍后重试');
+  });
+
+const handleSearch = () => {
+  resetPagination();
+  refreshTaskTable();
+};
+
+const handleReset = () => {
+  filters.taskName = '';
+  filters.target = '';
+  filters.taskId = '';
+  filters.taskType = undefined;
+  filters.status = '';
+  filters.siteCount = '';
+  filters.domainCount = '';
+  filters.wihCount = undefined;
+  resetPagination();
+  refreshTaskTable();
+};
+
+const selectedRowKeys = ref([]);
+
+const hasSelection = computed(() => selectedRowKeys.value.length > 0);
+
+const rowSelection = computed(() => ({
+  selectedRowKeys: selectedRowKeys.value,
+  onChange: (keys) => {
+    selectedRowKeys.value = keys;
+  }
+}));
+
 const resetForm = () => {
   formState.taskName = '';
   formState.target = '';
@@ -272,10 +408,26 @@ const resetForm = () => {
 const handleSubmit = () => {
   formRef.value
     ?.validate()
-    .then(() => {
-      // TODO: 发送创建任务请求
-      showAddTask.value = false;
-      resetForm();
+    .then(async () => {
+      const payload = {
+        taskName: formState.taskName.trim(),
+        target: formState.target,
+        assetDict: formState.assetDict,
+        portScan: formState.portScan,
+        capabilities: [...formState.capabilities],
+        securityOptions: [...formState.securityOptions]
+      };
+
+      try {
+        await createTask(payload);
+        message.success('任务已创建');
+        showAddTask.value = false;
+        resetForm();
+        await refreshTaskTable();
+      } catch (error) {
+        const errorMessage = error?.response?.data?.message || '任务创建失败，请稍后重试';
+        message.error(errorMessage);
+      }
     })
     .catch(() => {});
 };
@@ -302,22 +454,40 @@ const resetFofaForm = () => {
   fofaResult.value = 0;
 };
 
-const handleFofaTest = () => {
+const handleFofaTest = async () => {
   if (!fofaFormState.query) {
     fofaResult.value = 0;
     return;
   }
-  // TODO: 调用 FOFA 接口获取结果数
-  fofaResult.value = Math.floor(Math.random() * 1000);
+
+  try {
+    const count = await estimateFofaResult({ query: fofaFormState.query });
+    fofaResult.value = Number.isFinite(count) ? count : 0;
+  } catch (error) {
+    fofaResult.value = 0;
+    const messageText = error?.response?.data?.message || 'FOFA 测试失败，请稍后重试';
+    message.error(messageText);
+  }
 };
 
 const handleFofaSubmit = () => {
   fofaFormRef.value
     ?.validate()
-    .then(() => {
-      // TODO: 发送 FOFA 任务下发请求
-      showFofaTask.value = false;
-      resetFofaForm();
+    .then(async () => {
+      const payload = {
+        ...fofaFormState
+      };
+
+      try {
+        await dispatchFofaTask(payload);
+        message.success('FOFA 任务已下发');
+        showFofaTask.value = false;
+        resetFofaForm();
+        await refreshTaskTable();
+      } catch (error) {
+        const messageText = error?.response?.data?.message || '任务下发失败，请稍后重试';
+        message.error(messageText);
+      }
     })
     .catch(() => {});
 };
@@ -349,49 +519,43 @@ const columns = [
   { title: '操作', dataIndex: 'actions', width: 260, fixed: 'right' }
 ];
 
-const dataSource = reactive([
-  {
-    id: 1,
-    taskName: 'example.com',
-    target: 'example.com',
-    statistics: '站点: 74\n域名: 86',
-    options: '域名爆破, 域名查询插件, 端口扫描',
-    status: 'done',
-    startTime: '2025-09-20 09:35',
-    endTime: '2025-09-20 10:15',
-    taskId: 'TASK-20240920001'
+const statusTagColor = (status) => {
+  const value = (status || '').toString().toLowerCase();
+  if (['running', 'processing', 'in_progress'].includes(value)) return 'processing';
+  if (['done', 'finished', 'success', 'completed'].includes(value)) return 'success';
+  if (['failed', 'error', 'stopped'].includes(value)) return 'error';
+  if (['pending', 'queued', 'waiting'].includes(value)) return 'default';
+  return 'default';
+};
+
+const statusText = (status) => {
+  if (!status) return '--';
+  const value = status.toString();
+  switch (value.toLowerCase()) {
+    case 'running':
+    case 'processing':
+    case 'in_progress':
+      return '执行中';
+    case 'done':
+    case 'finished':
+    case 'success':
+    case 'completed':
+      return '已完成';
+    case 'failed':
+    case 'error':
+      return '失败';
+    case 'stopped':
+      return '已停止';
+    case 'pending':
+    case 'queued':
+      return '排队中';
+    default:
+      return value;
   }
-]);
+};
 
-const selectedRowKeys = ref([]);
-
-const hasSelection = computed(() => selectedRowKeys.value.length > 0);
-
-const rowSelection = computed(() => ({
-  selectedRowKeys: selectedRowKeys.value,
-  onChange: (keys) => {
-    selectedRowKeys.value = keys;
-  }
-}));
-
-const pagination = reactive({
-  current: 1,
-  pageSize: 10,
-  total: dataSource.length,
-  showSizeChanger: true,
-  pageSizeOptions: ['10', '20', '50'],
-  showQuickJumper: true
-});
-
-// 组件生命周期示例（可选）
-// 组件挂载时执行
 onMounted(() => {
-  console.log('✅ DashboardView 组件已挂载');
-});
-
-// 组件卸载时执行
-onUnmounted(() => {
-  console.log('🔄 DashboardView 组件即将卸载');
+  refreshTaskTable();
 });
 </script>
 

@@ -13,8 +13,8 @@
         :model="formState"
         :rules="rules"
         layout="vertical"
-        @submit.prevent="handleSubmit"
         class="login-form"
+        @submit.prevent="handleSubmit"
       >
         <a-form-item name="username">
           <template #label>

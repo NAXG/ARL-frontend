@@ -30,6 +30,7 @@
         :columns="columns"
         :data-source="dataSource"
         :pagination="pagination"
+        :loading="tableLoading"
         row-key="id"
         @change="handleTableChange"
       >
@@ -39,8 +40,16 @@
           </template>
           <template v-else-if="column.dataIndex === 'actions'">
             <a-space>
-              <a-button type="link" size="small">详情</a-button>
-              <a-button type="link" danger size="small">取消监控</a-button>
+              <a-button type="link" size="small" @click="handleViewDetail(record)">详情</a-button>
+              <a-button
+                type="link"
+                danger
+                size="small"
+                :loading="cancelingId === record.id"
+                @click="handleCancelMonitor(record)"
+              >
+                取消监控
+              </a-button>
             </a-space>
           </template>
           <template v-else>
@@ -61,6 +70,7 @@
       destroy-on-close
       ok-text="确定"
       cancel-text="取消"
+      :confirm-loading="subscribeSubmitting"
       @ok="handleSubscribeSubmit"
       @cancel="handleSubscribeCancel"
     >
@@ -75,10 +85,13 @@
         <a-form-item name="name" label="任务名" required>
           <a-input v-model:value="subscribeModal.form.name" placeholder="请输入任务名" />
         </a-form-item>
+        <a-form-item name="repo" label="仓库" required>
+          <a-input v-model:value="subscribeModal.form.repo" placeholder="请输入仓库地址" />
+        </a-form-item>
         <a-form-item name="keyword" label="关键字" required>
           <a-input v-model:value="subscribeModal.form.keyword" placeholder="请输入关键字" />
         </a-form-item>
-        <a-form-item name="cron" label="cron表达式" required>
+        <a-form-item name="cron" label="cron 表达式" required>
           <a-input v-model:value="subscribeModal.form.cron" placeholder="请输入 cron 表达式" />
         </a-form-item>
       </a-form>
@@ -89,8 +102,15 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue';
+import { onMounted, reactive, ref } from 'vue';
+import { message } from 'ant-design-vue';
 import PageFooter from '@/components/PageFooter.vue';
+import { useAsyncTable } from '@/utils/useAsyncTable';
+import {
+  cancelGithubMonitorTask,
+  createGithubMonitorTask,
+  fetchGithubMonitors
+} from '@/api/github';
 
 const filters = reactive({
   name: '',
@@ -108,24 +128,45 @@ const columns = [
   { title: '操作', dataIndex: 'actions', width: 160 }
 ];
 
-const dataSource = ref([
-  {
-    id: 1,
-    name: '敏感信息监控',
-    repo: 'github.com/org/sec-repo',
-    keyword: 'access_key',
-    status: 'watching',
-    lastSync: '2025-09-22 14:30',
-    alertCount: 3
-  }
-]);
+const monitorTable = useAsyncTable(async (params) => {
+  const { items, total } = await fetchGithubMonitors(params);
+  const rows = items.map((item, index) => ({
+    id: item.id ?? index + 1,
+    name: item.name ?? '--',
+    repo: item.repo ?? item.repository ?? '--',
+    keyword: item.keyword ?? '--',
+    status: item.status ?? 'watching',
+    lastSync: item.lastSync ?? item.updatedAt ?? '--',
+    alertCount: item.alertCount ?? item.alerts ?? 0
+  }));
 
-const pagination = reactive({
-  current: 1,
-  pageSize: 10,
-  total: dataSource.value.length,
-  showTotal: (total) => `共 ${total} 条`
+  return {
+    items: rows,
+    total
+  };
+}, {
+  pagination: {
+    pageSize: 10,
+    showTotal: (total) => `共 ${total} 条`
+  }
 });
+
+const {
+  data: dataSource,
+  loading: tableLoading,
+  pagination,
+  run: loadMonitorTable,
+  handleTableChange: baseHandleTableChange,
+  resetPagination
+} = monitorTable;
+
+const buildFilters = () => {
+  const params = {};
+  if (filters.name?.trim()) params.name = filters.name.trim();
+  if (filters.repo?.trim()) params.repo = filters.repo.trim();
+  if (filters.status) params.status = filters.status;
+  return params;
+};
 
 const statusColor = (status) => {
   switch (status) {
@@ -154,29 +195,37 @@ const statusText = (status) => {
 };
 
 const handleQuery = () => {
-  // TODO: 查询监控任务
+  resetPagination();
+  return loadMonitorTable(buildFilters()).catch(() => {
+    message.error('加载 GitHub 监控任务失败，请稍后重试');
+  });
 };
 
 const handleReset = () => {
   filters.name = '';
   filters.repo = '';
   filters.status = undefined;
+  handleQuery();
 };
 
 const handleSubscribe = () => {
   subscribeModal.visible = true;
 };
 
-const handleTableChange = (paginationInfo) => {
-  pagination.current = paginationInfo.current;
-  pagination.pageSize = paginationInfo.pageSize;
-};
+const handleTableChange = (paginationInfo) =>
+  baseHandleTableChange(paginationInfo)
+    .then(() => {})
+    .catch(() => {
+      message.error('加载 GitHub 监控任务失败，请稍后重试');
+    });
 
 const subscribeFormRef = ref();
+const subscribeSubmitting = ref(false);
 const subscribeModal = reactive({
   visible: false,
   form: {
     name: '',
+    repo: '',
     keyword: '',
     cron: ''
   }
@@ -184,12 +233,14 @@ const subscribeModal = reactive({
 
 const subscribeRules = {
   name: [{ required: true, message: '请输入任务名', trigger: 'blur' }],
+  repo: [{ required: true, message: '请输入仓库地址', trigger: 'blur' }],
   keyword: [{ required: true, message: '请输入关键字', trigger: 'blur' }],
   cron: [{ required: true, message: '请输入 cron 表达式', trigger: 'blur' }]
 };
 
 const resetSubscribeForm = () => {
   subscribeModal.form.name = '';
+  subscribeModal.form.repo = '';
   subscribeModal.form.keyword = '';
   subscribeModal.form.cron = '';
 };
@@ -197,10 +248,26 @@ const resetSubscribeForm = () => {
 const handleSubscribeSubmit = () => {
   subscribeFormRef.value
     ?.validate()
-    .then(() => {
-      // TODO: 提交监控任务
-      subscribeModal.visible = false;
-      resetSubscribeForm();
+    .then(async () => {
+      subscribeSubmitting.value = true;
+      try {
+        const payload = {
+          name: subscribeModal.form.name.trim(),
+          repo: subscribeModal.form.repo.trim(),
+          keyword: subscribeModal.form.keyword.trim(),
+          cron: subscribeModal.form.cron.trim()
+        };
+        await createGithubMonitorTask(payload);
+        message.success('GitHub 监控任务已创建');
+        subscribeModal.visible = false;
+        resetSubscribeForm();
+        await handleQuery();
+      } catch (error) {
+        const errorMessage = error?.response?.data?.message || '创建任务失败，请稍后重试';
+        message.error(errorMessage);
+      } finally {
+        subscribeSubmitting.value = false;
+      }
     })
     .catch(() => {});
 };
@@ -209,6 +276,33 @@ const handleSubscribeCancel = () => {
   subscribeModal.visible = false;
   resetSubscribeForm();
 };
+
+const cancelingId = ref(null);
+
+const handleCancelMonitor = async (record) => {
+  if (!record?.id) return;
+  cancelingId.value = record.id;
+  try {
+    await cancelGithubMonitorTask(record.id);
+    message.success('监控任务已取消');
+    await handleQuery();
+  } catch (error) {
+    const errorMessage = error?.response?.data?.message || '取消监控失败，请稍后重试';
+    message.error(errorMessage);
+  } finally {
+    cancelingId.value = null;
+  }
+};
+
+const handleViewDetail = (record) => {
+  if (typeof window === 'undefined' || !record?.repo) return;
+  const normalized = record.repo.replace(/^https?:\/\//i, '');
+  window.open(`https://${normalized}`, '_blank', 'noopener');
+};
+
+onMounted(() => {
+  handleQuery();
+});
 </script>
 
 <style scoped>
@@ -252,4 +346,3 @@ const handleSubscribeCancel = () => {
   width: 100%;
 }
 </style>
-
