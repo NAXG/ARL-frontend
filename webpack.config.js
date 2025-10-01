@@ -100,7 +100,21 @@ module.exports = {
     },
     historyApiFallback: true,
     host: '0.0.0.0',
-    port: 5173
+    port: 5173,
+    client: {
+      overlay: {
+        errors: true,
+        warnings: false,
+        runtimeErrors: (error) => {
+          // 过滤掉 ResizeObserver 错误
+          const message = error?.message || '';
+          if (message.includes('ResizeObserver')) {
+            return false;
+          }
+          return true;
+        }
+      }
+    }
   },
   plugins: [
     new VueLoaderPlugin(),

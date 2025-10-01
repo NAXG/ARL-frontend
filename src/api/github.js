@@ -23,36 +23,6 @@ const fallbackGithubTasks = [
   }
 ];
 
-export async function fetchGithubTasks(params = {}) {
-  try {
-    const response = await http.get('/github/tasks', { params });
-    const payload = response?.data || {};
-    const items = payload.items || payload.results || [];
-    return {
-      items,
-      total: payload.total ?? items.length
-    };
-  } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('[fetchGithubTasks] 使用本地回退数据', error?.message);
-      return {
-        items: fallbackGithubTasks.map((item, index) => ({ ...item, id: item.id ?? index + 1 })),
-        total: fallbackGithubTasks.length,
-        error
-      };
-    }
-    throw error;
-  }
-}
-
-export function createGithubTask(payload) {
-  return http.post('/github/tasks', payload);
-}
-
-export function deleteGithubTasks(ids) {
-  return http.delete('/github/tasks', { data: { ids } });
-}
-
 const fallbackGithubMonitors = [
   {
     id: 1,
@@ -65,9 +35,11 @@ const fallbackGithubMonitors = [
   }
 ];
 
-export async function fetchGithubMonitors(params = {}) {
+// ==================== GitHub 任务管理 ====================
+// GitHub 任务列表
+export async function fetchGithubTasks(params = {}) {
   try {
-    const response = await http.get('/github/monitors', { params });
+    const response = await http.get('/github_task/', { params });
     const payload = response?.data || {};
     const items = payload.items || payload.results || [];
     return {
@@ -76,7 +48,57 @@ export async function fetchGithubMonitors(params = {}) {
     };
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') {
-      console.warn('[fetchGithubMonitors] 使用本地回退数据', error?.message);
+      // 使用本地回退数据，静默处理
+      return {
+        items: fallbackGithubTasks.map((item, index) => ({ ...item, id: item.id ?? index + 1 })),
+        total: fallbackGithubTasks.length,
+        error
+      };
+    }
+    throw error;
+  }
+}
+
+// 创建 GitHub 任务
+export function createGithubTask(payload) {
+  return http.post('/github_task/', payload);
+}
+
+// 删除 GitHub 任务
+export function deleteGithubTask(payload) {
+  return http.post('/github_task/delete/', payload);
+}
+
+// 批量删除 GitHub 任务
+export function batchDeleteGithubTasks(payload) {
+  return http.post('/github_task/delete/', payload);
+}
+
+// 停止 GitHub 任务
+export function stopGithubTask(payload) {
+  return http.post('/github_task/stop/', payload);
+}
+
+// ==================== GitHub 扫描结果 ====================
+// GitHub 结果列表
+export function fetchGithubResults(params) {
+  return http.get('/github_result/', { params });
+}
+
+// ==================== GitHub 定时任务管理 ====================
+// GitHub 定时任务列表
+export async function fetchGithubMonitors(params = {}) {
+  try {
+    const response = await http.get('/github_scheduler/', { params });
+    const payload = response?.data || {};
+    const items = payload.items || payload.results || [];
+    return {
+      items,
+      total: payload.total ?? items.length
+    };
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'production') {
+      // 使用本地回退数据，静默处理
       return {
         items: fallbackGithubMonitors.map((item, index) => ({ ...item, id: item.id ?? index + 1 })),
         total: fallbackGithubMonitors.length,
@@ -87,12 +109,13 @@ export async function fetchGithubMonitors(params = {}) {
   }
 }
 
+// 创建 GitHub 定时任务
 export async function createGithubMonitorTask(payload) {
   try {
-    return await http.post('/github/monitors', payload);
+    return await http.post('/github_scheduler/', payload);
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') {
-      console.warn('[createGithubMonitorTask] 使用本地回退逻辑', error?.message);
+      // 使用本地回退逻辑，静默处理
       const newItem = {
         id: Date.now(),
         name: payload?.name || '未命名监控',
@@ -111,12 +134,28 @@ export async function createGithubMonitorTask(payload) {
   }
 }
 
+// 删除 GitHub 定时任务
+export function deleteGithubScheduler(payload) {
+  return http.post('/github_scheduler/delete/', payload);
+}
+
+// 停止 GitHub 定时任务
+export function stopGithubScheduler(payload) {
+  return http.post('/github_scheduler/stop/', payload);
+}
+
+// 恢复 GitHub 定时任务
+export function recoverGithubScheduler(payload) {
+  return http.post('/github_scheduler/recover/', payload);
+}
+
+// 取消 GitHub 监控任务（兼容旧接口）
 export async function cancelGithubMonitorTask(id) {
   try {
-    return await http.delete(`/github/monitors/${id}`);
+    return await http.post('/github_scheduler/delete/', { _id: id });
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') {
-      console.warn('[cancelGithubMonitorTask] 使用本地回退逻辑', error?.message);
+      // 使用本地回退逻辑，静默处理
       const index = fallbackGithubMonitors.findIndex((item) => item.id === id);
       if (index >= 0) {
         fallbackGithubMonitors.splice(index, 1);
@@ -126,3 +165,6 @@ export async function cancelGithubMonitorTask(id) {
     throw error;
   }
 }
+
+// 别名导出（兼容组件中的命名）
+export { batchDeleteGithubTasks as deleteGithubTasks };

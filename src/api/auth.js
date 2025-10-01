@@ -9,5 +9,9 @@ export function logout() {
 }
 
 export function changePassword(payload) {
-  return http.post('/user/change_password', payload);
+  return http.post('/user/change_pass', payload);
+}
+
+export function getUserInfo(token) {
+  return http.get('/user/info', { params: { token } });
 }

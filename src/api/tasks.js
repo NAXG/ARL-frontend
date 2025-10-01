@@ -16,9 +16,10 @@ const fallbackTasks = [
 
 const fallbackFofaEstimate = () => Math.floor(Math.random() * 1000);
 
+// 任务列表
 export async function fetchTaskList(params = {}) {
   try {
-    const response = await http.get('/tasks', { params });
+    const response = await http.get('/task/', { params });
     const payload = response?.data || {};
     const items = payload.items || payload.results || [];
     return {
@@ -27,7 +28,7 @@ export async function fetchTaskList(params = {}) {
     };
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') {
-      console.warn('[fetchTaskList] 使用本地回退数据', error?.message);
+      // 使用本地回退数据，静默处理
       return {
         items: fallbackTasks.map((item, index) => ({ ...item, id: item.id ?? index + 1 })),
         total: fallbackTasks.length,
@@ -38,10 +39,62 @@ export async function fetchTaskList(params = {}) {
   }
 }
 
-export function createTask(payload) {
-  return http.post('/tasks', payload);
+// 任务列表（用于搜索）
+export function fetchTaskListForSearch(params) {
+  return http.get('/task/list', { params });
 }
 
+// 创建任务
+export function createTask(payload) {
+  return http.post('/task/', payload);
+}
+
+// 创建策略任务
+export function createPolicyTask(payload) {
+  return http.post('/task/policy/', payload);
+}
+
+// 同步任务
+export function syncTask(payload) {
+  return http.post('/task/sync/', payload);
+}
+
+// 同步范围列表
+export function fetchSyncScopeList(params) {
+  return http.get('/task/sync_scope/', { params });
+}
+
+// 删除任务
+export function deleteTask(payload) {
+  return http.post('/task/delete/', payload);
+}
+
+// 批量删除任务
+export function batchDeleteTasks(payload) {
+  return http.post('/task/delete/', payload);
+}
+
+// 重启任务
+export function restartTask(payload) {
+  return http.post('/task/restart/', payload);
+}
+
+// 停止任务（通过ID）
+export function stopTaskById(id) {
+  return http.get(`/task/stop/${id}`);
+}
+
+// 启动任务
+export function startTask(payload) {
+  return http.post('/task/start', payload);
+}
+
+// 停止任务
+export function stopTask(payload) {
+  return http.post('/task/stop', payload);
+}
+
+// FOFA 任务
 export function dispatchFofaTask(payload) {
   return http.post('/tasks/fofa', payload);
 }
@@ -52,7 +105,7 @@ export async function estimateFofaResult(params) {
     return response?.data?.count ?? 0;
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') {
-      console.warn('[estimateFofaResult] 使用回退估算结果', error?.message);
+      // 使用回退估算结果，静默处理
       return fallbackFofaEstimate();
     }
     throw error;

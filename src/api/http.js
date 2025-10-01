@@ -52,8 +52,15 @@ http.interceptors.response.use(
 
       console.error(`API error: ${status}`, data);
     } else {
-      message.error('网络连接异常，请检查后重试');
-      console.error('API error:', error.message);
+      // 开发环境下，如果有 fallback 机制，不显示网络错误提示
+      const isDev = process.env.NODE_ENV !== 'production';
+      if (!isDev) {
+        message.error('网络连接异常，请检查后重试');
+      }
+      // 只在非开发环境或没有 fallback 时才打印错误
+      if (!isDev || !error.config?.url) {
+        console.error('API error:', error.message);
+      }
     }
 
     return Promise.reject(error);
