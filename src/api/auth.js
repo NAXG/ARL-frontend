@@ -7,3 +7,7 @@ export function login(payload) {
 export function logout() {
   return http.get('/user/logout');
 }
+
+export function changePassword(payload) {
+  return http.post('/user/change_password', payload);
+}

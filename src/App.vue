@@ -37,6 +37,8 @@
           </a-avatar>
           <span class="username">{{ username || '未命名用户' }}</span>
           <a-divider type="vertical" />
+          <a-button type="link" size="small" @click="showPasswordModal">修改密码</a-button>
+          <a-divider type="vertical" />
           <a-button type="link" size="small" @click="handleLogout">退出登录</a-button>
         </div>
       </a-layout-header>
@@ -48,6 +50,44 @@
         </router-view>
       </a-layout-content>
     </a-layout>
+    
+    <!-- 修改密码对话框 -->
+    <a-modal
+      v-model:open="passwordModalVisible"
+      title="修改密码"
+      :confirm-loading="passwordLoading"
+      @ok="handlePasswordSubmit"
+      @cancel="handlePasswordCancel"
+    >
+      <a-form
+        ref="passwordFormRef"
+        :model="passwordForm"
+        :rules="passwordRules"
+        layout="vertical"
+      >
+        <a-form-item label="旧密码" name="oldPassword">
+          <a-input-password
+            v-model:value="passwordForm.oldPassword"
+            placeholder="请输入旧密码"
+            autocomplete="off"
+          />
+        </a-form-item>
+        <a-form-item label="新密码" name="newPassword">
+          <a-input-password
+            v-model:value="passwordForm.newPassword"
+            placeholder="请输入新密码（至少6位）"
+            autocomplete="off"
+          />
+        </a-form-item>
+        <a-form-item label="确认新密码" name="confirmPassword">
+          <a-input-password
+            v-model:value="passwordForm.confirmPassword"
+            placeholder="请再次输入新密码"
+            autocomplete="off"
+          />
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </a-layout>
 </template>
 
@@ -56,7 +96,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { message } from 'ant-design-vue';
 import { MenuUnfoldOutlined, MenuFoldOutlined, AppstoreOutlined, SearchOutlined, RadarChartOutlined, ClusterOutlined, SettingOutlined, GlobalOutlined, HddOutlined, ScheduleOutlined, GithubOutlined, FundOutlined, UserOutlined, TagsOutlined } from '@ant-design/icons-vue';
-import { logout } from '@/api/auth';
+import { logout, changePassword } from '@/api/auth';
 import { subscribeAuthChange, clearAuth } from '@/utils/auth';
 
 const collapsed = ref(false);
@@ -66,6 +106,15 @@ const router = useRouter();
 const isAuthenticated = ref(false);
 const username = ref('');
 const showLayout = computed(() => route.meta?.layout !== 'blank');
+
+// 开发环境自动模拟登录状态
+if (process.env.NODE_ENV !== 'production') {
+  const token = localStorage.getItem('arl-token');
+  if (!token) {
+    localStorage.setItem('arl-token', 'dev-test-token');
+    localStorage.setItem('arl-username', 'admin');
+  }
+}
 
 const menuItems = [
   { key: 'task', label: '任务管理', icon: AppstoreOutlined, path: '/taskList' },
@@ -125,7 +174,81 @@ const handleLogout = async () => {
   }
 };
 
+// 修改密码相关
+const passwordModalVisible = ref(false);
+const passwordLoading = ref(false);
+const passwordFormRef = ref();
+const passwordForm = ref({
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+});
 
+const passwordRules = {
+  oldPassword: [
+    { required: true, message: '请输入旧密码', trigger: 'blur' }
+  ],
+  newPassword: [
+    { required: true, message: '请输入新密码', trigger: 'blur' },
+    { min: 6, message: '密码长度至少为6位', trigger: 'blur' }
+  ],
+  confirmPassword: [
+    { required: true, message: '请再次输入新密码', trigger: 'blur' },
+    {
+      validator: (rule, value) => {
+        if (value !== passwordForm.value.newPassword) {
+          return Promise.reject('两次输入的密码不一致');
+        }
+        return Promise.resolve();
+      },
+      trigger: 'blur'
+    }
+  ]
+};
+
+const showPasswordModal = () => {
+  passwordModalVisible.value = true;
+};
+
+const handlePasswordCancel = () => {
+  passwordModalVisible.value = false;
+  passwordForm.value = {
+    oldPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  };
+  passwordFormRef.value?.resetFields();
+};
+
+const handlePasswordSubmit = async () => {
+  try {
+    await passwordFormRef.value?.validate();
+    passwordLoading.value = true;
+    
+    await changePassword({
+      old_password: passwordForm.value.oldPassword,
+      new_password: passwordForm.value.newPassword
+    });
+    
+    message.success('密码修改成功，请重新登录');
+    handlePasswordCancel();
+    
+    // 清除认证信息，跳转登录页
+    setTimeout(() => {
+      clearAuth();
+      router.replace({ name: 'login' });
+    }, 500);
+  } catch (error) {
+    if (error.errorFields) {
+      // 表单验证错误
+      return;
+    }
+    // API 错误已在拦截器中处理
+    console.error('修改密码失败:', error);
+  } finally {
+    passwordLoading.value = false;
+  }
+};
 
 let unsubscribe;
 let authLogoutHandler;
