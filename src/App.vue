@@ -32,8 +32,8 @@
           <h2 class="header-title">{{ currentPageTitle }}</h2>
         </div>
         <div v-if="isAuthenticated" class="header-right">
-          <a-avatar class="avatar" size="small">
-            <UserOutlined />
+          <a-avatar class="avatar" size="small" :style="{ backgroundColor: '#1890ff' }">
+            {{ username ? username.charAt(0).toUpperCase() : 'U' }}
           </a-avatar>
           <span class="username">{{ username || '未命名用户' }}</span>
           <a-divider type="vertical" />
@@ -95,7 +95,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { message } from 'ant-design-vue';
-import { MenuUnfoldOutlined, MenuFoldOutlined, AppstoreOutlined, SearchOutlined, RadarChartOutlined, ClusterOutlined, SettingOutlined, GlobalOutlined, HddOutlined, ScheduleOutlined, GithubOutlined, FundOutlined, UserOutlined, TagsOutlined } from '@ant-design/icons-vue';
+import { MenuUnfoldOutlined, MenuFoldOutlined, AppstoreOutlined, SearchOutlined, RadarChartOutlined, ClusterOutlined, SettingOutlined, GlobalOutlined, HddOutlined, ScheduleOutlined, GithubOutlined, FundOutlined, TagsOutlined } from '@ant-design/icons-vue';
 import { logout, changePassword } from '@/api/auth';
 import { subscribeAuthChange, clearAuth } from '@/utils/auth';
 
@@ -415,10 +415,6 @@ onUnmounted(() => {
   align-items: center;
   gap: 12px;
   color: #1d2b3e;
-}
-
-.avatar :deep(.ant-avatar-string) {
-  display: none;
 }
 
 .username {
