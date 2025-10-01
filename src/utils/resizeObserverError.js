@@ -13,14 +13,16 @@ export const installResizeObserverErrorHandler = () => {
   window.__resizeObserverErrorHandlerInstalled = true;
 
   const handleWindowError = (event) => {
-    if (isResizeObserverError(event?.message)) {
+    const message = event?.message || event?.error?.message;
+    if (isResizeObserverError(message)) {
       event.preventDefault();
       event.stopImmediatePropagation();
     }
   };
 
   const handleUnhandledRejection = (event) => {
-    if (isResizeObserverError(event?.reason?.message)) {
+    const message = event?.reason?.message || event?.reason;
+    if (isResizeObserverError(message)) {
       event.preventDefault();
       event.stopImmediatePropagation?.();
     }
@@ -28,4 +30,18 @@ export const installResizeObserverErrorHandler = () => {
 
   window.addEventListener('error', handleWindowError);
   window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+  const originalOnError = window.onerror;
+  window.onerror = (message, source, lineno, colno, error) => {
+    const text = typeof message === 'string' ? message : error?.message;
+    if (isResizeObserverError(text)) {
+      return true;
+    }
+
+    if (typeof originalOnError === 'function') {
+      return originalOnError.call(window, message, source, lineno, colno, error);
+    }
+
+    return false;
+  };
 };
